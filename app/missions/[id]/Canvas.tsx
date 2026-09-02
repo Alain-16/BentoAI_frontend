@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Basket, Mission } from "@/lib/api";
+import { selectProduct } from "@/lib/api";
 import { Compare } from "./Compare";
 import { ProductCard } from "./ProductCard";
 import { Eyebrow, Skeleton } from "./ui";
@@ -17,10 +18,13 @@ export function Canvas({
   mission,
   basket,
   working,
+  onChanged,
 }: {
   mission: Mission;
   basket: Basket | null;
   working: boolean;
+  /** Called after a selection so the workspace refetches everything. */
+  onChanged: () => void;
 }) {
   // Which requirement's comparison is open, by id. Held here rather than in
   // each card because the overlay compares a whole group - a card only knows
@@ -69,6 +73,11 @@ export function Canvas({
             currency: basket.budget_currency,
           }}
           onClose={() => setComparing(null)}
+          onSelect={async (productId) => {
+            await selectProduct(mission.id, openGroup.requirement_id, productId);
+            setComparing(null);
+            onChanged();
+          }}
         />
       )}
 
@@ -101,6 +110,10 @@ export function Canvas({
                 <ProductCard
                   option={chosen}
                   chosen
+                  onSelect={async () => {
+                    await selectProduct(mission.id, group.requirement_id, chosen.product_id);
+                    onChanged();
+                  }}
                   onCompare={
                     group.options.length > 1
                       ? () => setComparing(group.requirement_id)
@@ -113,6 +126,10 @@ export function Canvas({
                   key={option.product_id}
                   option={option}
                   chosen={false}
+                  onSelect={async () => {
+                    await selectProduct(mission.id, group.requirement_id, option.product_id);
+                    onChanged();
+                  }}
                   onCompare={
                     group.options.length > 1
                       ? () => setComparing(group.requirement_id)

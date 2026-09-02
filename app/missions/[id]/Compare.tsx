@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { BasketOption, BasketRequirement, Mission } from "@/lib/api";
 import { amount, money } from "@/lib/api";
-import { NotYet } from "./ui";
+
 
 /**
  * Two or three products side by side.
@@ -22,11 +22,15 @@ export function Compare({
   group,
   basket,
   onClose,
+  onSelect,
 }: {
   mission: Mission;
   group: BasketRequirement;
   basket: { total: string; remaining: string | null; currency: string };
   onClose: () => void;
+  /** Chooses a product for this requirement, then closes. Same call the cards
+   *  in the canvas make - one operation, one code path. */
+  onSelect: (productId: string) => Promise<void>;
 }) {
   // Escape closes it. Expected of any overlay, and cheap to honour.
   useEffect(() => {
@@ -95,6 +99,7 @@ export function Compare({
               index={index}
               basket={basket}
               quantity={group.quantity}
+              onSelect={onSelect}
             />
           ))}
         </div>
@@ -116,13 +121,16 @@ function Column({
   index,
   basket,
   quantity,
+  onSelect,
 }: {
   option: BasketOption;
   current: BasketOption;
   index: number;
   basket: { total: string; remaining: string | null; currency: string };
   quantity: number;
+  onSelect: (productId: string) => Promise<void>;
 }) {
+  const [saving, setSaving] = useState(false);
   const isCurrent = option.product_id === current.product_id;
 
   // What switching to this would do to the basket. Plain subtraction on the
@@ -216,15 +224,31 @@ function Column({
       )}
 
       <div className="mt-4">
-        {isCurrent ? (
-          <NotYet className="w-full" reason="Keeping a pick needs POST /selections, which is not built yet.">
-            Keep current
-          </NotYet>
-        ) : (
-          <NotYet className="w-full" reason="Switching needs POST /selections, which is not built yet.">
-            Switch to this
-          </NotYet>
-        )}
+        <button
+          type="button"
+          disabled={saving || (isCurrent && option.selected_by === "customer")}
+          onClick={async () => {
+            setSaving(true);
+            try {
+              await onSelect(option.product_id);
+            } finally {
+              setSaving(false);
+            }
+          }}
+          className={`w-full rounded-md px-3 py-2 text-[12.5px] font-medium ${
+            isCurrent
+              ? "border border-olive/40 bg-olive/5 text-olive disabled:opacity-70"
+              : "bg-olive text-paper"
+          }`}
+        >
+          {saving
+            ? "Saving…"
+            : isCurrent
+              ? option.selected_by === "customer"
+                ? "Your pick"
+                : "Keep current"
+              : "Switch to this"}
+        </button>
       </div>
     </div>
   );

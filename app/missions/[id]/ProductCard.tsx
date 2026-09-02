@@ -1,5 +1,6 @@
 import type { BasketOption } from "@/lib/api";
 import { money } from "@/lib/api";
+import { useState } from "react";
 import { Chip, NotYet } from "./ui";
 
 /**
@@ -14,13 +15,27 @@ export function ProductCard({
   option,
   chosen,
   onCompare,
+  onSelect,
 }: {
   option: BasketOption;
   chosen: boolean;
   /** Opens the comparison for this product's requirement. Left out when there
    *  is only one option, because there is nothing to compare it against. */
   onCompare?: () => void;
+  /** Puts this product in the basket for its requirement. */
+  onSelect?: () => Promise<void>;
 }) {
+  const [saving, setSaving] = useState(false);
+
+  async function choose() {
+    if (!onSelect) return;
+    setSaving(true);
+    try {
+      await onSelect();
+    } finally {
+      setSaving(false);
+    }
+  }
   return (
     <article
       className={`rounded-md border bg-surface p-4 ${
@@ -78,6 +93,12 @@ export function ProductCard({
             </div>
           </div>
 
+          {option.price_was && (
+            <p className="tnum mt-1 text-right text-[11.5px] text-clay">
+              was {money(option.price_was, option.currency)}
+            </p>
+          )}
+
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {/* Why it is on the shortlist at all - "best score" or "cheapest
                 that passed" - is a fact the optimizer recorded, so it is worth
@@ -118,12 +139,27 @@ export function ProductCard({
                 Compare
               </NotYet>
             )}
-            <NotYet reason="Swapping needs POST /selections, which is not built yet.">
-              Swap
-            </NotYet>
-            <NotYet reason="Keeping a pick needs POST /selections, which is not built yet.">
-              Keep
-            </NotYet>
+            {/* Keep and Swap are the same request - "this is my choice for
+                this requirement". Which word is shown depends only on whether
+                it is already the choice. */}
+            <button
+              type="button"
+              onClick={choose}
+              disabled={saving || (chosen && option.selected_by === "customer")}
+              className={`rounded-md border px-3 py-[7px] text-[12.5px] font-medium ${
+                chosen
+                  ? "border-olive/40 bg-olive/5 text-olive disabled:opacity-70"
+                  : "border-line text-ink hover:border-olive hover:text-olive"
+              }`}
+            >
+              {saving
+                ? "Saving…"
+                : chosen
+                  ? option.selected_by === "customer"
+                    ? "Your pick"
+                    : "Keep"
+                  : "Swap to this"}
+            </button>
           </div>
         </div>
       </div>

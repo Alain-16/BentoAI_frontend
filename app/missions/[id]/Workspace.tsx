@@ -166,7 +166,12 @@ export function Workspace({ missionId }: { missionId: string }) {
         </aside>
 
         <div className="min-w-0 flex-1 overflow-y-auto">
-          <Canvas mission={mission} basket={basket} working={working} />
+          <Canvas
+            mission={mission}
+            basket={basket}
+            working={working}
+            onChanged={refresh}
+          />
         </div>
       </div>
 

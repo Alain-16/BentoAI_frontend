@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Basket } from "@/lib/api";
 import { money } from "@/lib/api";
 import { Eyebrow, NotYet, Skeleton } from "./ui";
@@ -77,12 +78,21 @@ export function BasketDock({
         </div>
       )}
 
-      <NotYet
-        className="shrink-0 border-olive/40 text-olive/70"
-        reason="Approving a basket needs POST /selections and the Smart Basket, which are not built yet."
-      >
-        Review basket
-      </NotYet>
+      {basket && basket.item_count > 0 ? (
+        <Link
+          href={`/missions/${basket.mission_id}/review`}
+          className="shrink-0 rounded-md bg-olive px-3 py-[7px] text-[12.5px] font-medium text-paper"
+        >
+          Review basket
+        </Link>
+      ) : (
+        <NotYet
+          className="shrink-0"
+          reason="There is nothing in the basket to review yet."
+        >
+          Review basket
+        </NotYet>
+      )}
     </div>
   );
 }

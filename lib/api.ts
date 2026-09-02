@@ -100,6 +100,11 @@ export type BasketOption = {
   trade_offs: string[];
   preferred: boolean;
   chosen: boolean;
+  /** "optimizer" or "customer" - who put this in the basket. Null unless
+   *  chosen. Lets the UI say "you changed this". */
+  selected_by: string | null;
+  /** What it cost when it was chosen, if that is not what it costs now. */
+  price_was: Money | null;
 };
 
 export type BasketRequirement = {
@@ -108,6 +113,21 @@ export type BasketRequirement = {
   priority: "required" | "optional";
   quantity: number;
   options: BasketOption[];
+};
+
+export type BasketBlocker = {
+  requirement_id: string;
+  category: string;
+  title: string;
+  /** "no_longer_listed" or "out_of_stock". */
+  reason: string;
+  replacement: {
+    product_id: string;
+    title: string;
+    price: Money;
+    currency: string;
+    merchant_name: string;
+  } | null;
 };
 
 export type Basket = {
@@ -120,6 +140,12 @@ export type Basket = {
   feasible: boolean;
   requirements: BasketRequirement[];
   notes: string[];
+  /** Anything in here must be resolved before the basket can be approved. */
+  blockers: BasketBlocker[];
+  item_count: number;
+  merchant_count: number;
+  requirements_met: number;
+  requirements_total: number;
 };
 
 export type RunAck = {
@@ -170,6 +196,18 @@ export const getMission = (id: string) => request<Mission>(`/missions/${id}`);
 
 export const getActivity = (id: string) =>
   request<ActivityEvent[]>(`/missions/${id}/activity`);
+
+/** Choose a product for one requirement. This is both Keep and Swap - one
+ *  operation, because "this is my choice for this requirement" is one idea. */
+export const selectProduct = (id: string, requirementId: string, productId: string) =>
+  request<Basket>(`/missions/${id}/selections`, {
+    method: "POST",
+    body: JSON.stringify({ requirement_id: requirementId, product_id: productId }),
+  });
+
+/** Accept the basket. Moves the mission to BASKET_READY. Buys nothing. */
+export const approveBasket = (id: string) =>
+  request<Basket>(`/missions/${id}/approve`, { method: "POST" });
 
 export const startRun = (id: string) =>
   request<RunAck>(`/missions/${id}/run`, { method: "POST" });
