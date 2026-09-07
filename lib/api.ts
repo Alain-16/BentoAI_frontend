@@ -57,6 +57,7 @@ export type Mission = {
   budget_amount: Money | null;
   budget_currency: string;
   location: string | null;
+  priority: MissionPriority;
   constraints: { items?: { type: string; value: string; strength: string }[] };
   preferences: { items?: { type: string; value: string }[] };
   created_at: string;
@@ -208,6 +209,19 @@ export const selectProduct = (id: string, requirementId: string, productId: stri
 /** Accept the basket. Moves the mission to BASKET_READY. Buys nothing. */
 export const approveBasket = (id: string) =>
   request<Basket>(`/missions/${id}/approve`, { method: "POST" });
+
+export type MissionPriority = "quality" | "value" | "balanced" | "speed";
+
+export type MissionDraft = {
+  goal: string;
+  budget_amount?: number;
+  budget_currency?: string;
+  location?: string;
+  priority?: MissionPriority;
+};
+
+export const createMission = (draft: MissionDraft) =>
+  request<Mission>("/missions", { method: "POST", body: JSON.stringify(draft) });
 
 export const startRun = (id: string) =>
   request<RunAck>(`/missions/${id}/run`, { method: "POST" });
