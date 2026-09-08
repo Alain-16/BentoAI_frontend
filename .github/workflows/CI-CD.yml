@@ -1,1 +1,212 @@
+name: bentoai-frontend
 
+on:
+  push:
+    branches: [development, main]
+  pull_request:
+    branches: [development, main]
+
+permissions:
+  contents: read
+
+jobs:
+
+  app:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+  # ------------------------------------------------------------------ dock
+  docker:
+    runs-on: ubuntu-latest
+    needs: app
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+
+      - name: The API URL must be set
+        if: github.event_name == 'push' && github.ref_name == 'development'
+        run: |
+          if [ -z "${{ vars.PROD_API_BASE_URL }}" ]; then
+            echo "PROD_API_BASE_URL is not set."
+            echo "Settings > Secrets and variables > Actions > Variables."
+            echo "It is the address a BROWSER uses, e.g. http://<host>:8000/api/v1"
+            exit 1
+          fi
+          echo "building against ${{ vars.PROD_API_BASE_URL }}"
+
+      - name: Login to GHCR
+        if: github.event_name == 'push' && github.ref_name == 'development'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' && github.ref_name == 'development' }}
+
+
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.PROD_API_BASE_URL }}
+
+
+          tags: |
+            ghcr.io/alain-16/bentoai-web:${{ github.sha }}
+            ghcr.io/alain-16/bentoai-web:latest
+
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+  # ------------------------------------------------------------------- merge
+  merge:
+    runs-on: ubuntu-latest
+    needs: docker
+
+    if: github.event_name == 'push' && github.ref_name == 'development'
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Merge development into main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr create \
+            --base main \
+            --head development \
+            --title "Release ${{ github.sha }}" \
+            --body "Automated merge. Checks passed and the image published as:
+
+          \`ghcr.io/alain-16/bentoai-web:${{ github.sha }}\`" \
+            || true
+
+          PR=$(gh pr list --base main --head development --state open \
+                 --json number --jq '.[0].number // empty')
+
+          if [ -z "$PR" ]; then
+            echo "nothing to merge - main already matches development"
+            exit 0
+          fi
+
+          gh pr merge "$PR" --merge --delete-branch=false
+
+          echo "merged PR #$PR into main"
+
+  # ------------------------------------------------------------------ deploy
+  deploy:
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.event_name == 'push' && github.ref_name == 'development'
+
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/bentoai_ci
+          chmod 600 ~/.ssh/bentoai_ci
+          ssh-keyscan -H "${{ secrets.PROD_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Make sure the deploy directory exists
+        run: |
+          ssh -i ~/.ssh/bentoai_ci -o IdentitiesOnly=yes \
+            "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" \
+            'mkdir -p ~/bentoai-frontend'
+
+      - name: Copy the compose file
+        run: |
+          scp -i ~/.ssh/bentoai_ci -o IdentitiesOnly=yes \
+            docker-compose.yml \
+            "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:bentoai-frontend/docker-compose.yml"
+
+      - name: Deploy
+        env:
+          IMAGE_URL: ghcr.io/alain-16/bentoai-web:${{ github.sha }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+
+          ssh -i ~/.ssh/bentoai_ci -o IdentitiesOnly=yes \
+            "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" bash -s <<REMOTE
+          set -euo pipefail
+          cd ~/bentoai-frontend
+
+          echo '$GHCR_TOKEN' | docker login ghcr.io -u '${{ github.actor }}
+
+          export IMAGE_URL='$IMAGE_URL'
+          export RESTART_POLICY=always
+
+          echo "deploying \$IMAGE_URL"
+
+          docker compose pull
+          docker compose up -d
+
+          docker logout ghcr.io
+          REMOTE
+
+      - name: Health check
+        run: |
+          ssh -i ~/.ssh/bentoai_ci -o IdentitiesOnly=yes \
+            "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" bash -s <<'
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if curl -sf --max-time 5 http://localhost:3000/ > /dev/null; th
+              echo "serving after $((i * 2))s"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "never served. Container state:"
+          docker ps -a --filter name=bentoai-web --format 'table {{.Names}}\t{{.Status}}'
+          echo "--- logs ---"
+          docker logs --tail 80 bentoai-web 2>&1 || echo "(no such container)"
+          exit 1
+          REMOTE
+
+      - name: Reachable from outside
+        run: |
+          curl -sf --max-time 15 "http://${{ secrets.PROD_HOST }}:3000/" > /dev/null
+          echo "reachable"
