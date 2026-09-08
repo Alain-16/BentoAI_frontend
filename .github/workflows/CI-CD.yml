@@ -57,13 +57,13 @@ jobs:
       - name: The API URL must be set
         if: github.event_name == 'push' && github.ref_name == 'development'
         run: |
-          if [ -z "${{ vars.PROD_API_BASE_URL }}" ]; then
+          if [ -z "${{ secrets.PROD_API_BASE_URL }}" ]; then
             echo "PROD_API_BASE_URL is not set."
-            echo "Settings > Secrets and variables > Actions > Variables."
+            echo "Settings > Secrets and variables > Actions > Secrets."
             echo "It is the address a BROWSER uses, e.g. http://<host>:8000/api/v1"
             exit 1
           fi
-          echo "building against ${{ vars.PROD_API_BASE_URL }}"
+          echo "API URL is not set"
 
       - name: Login to GHCR
         if: github.event_name == 'push' && github.ref_name == 'development'
@@ -82,7 +82,7 @@ jobs:
 
 
           build-args: |
-            NEXT_PUBLIC_API_BASE_URL=${{ vars.PROD_API_BASE_URL }}
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
 
 
           tags: |
