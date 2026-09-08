@@ -1,0 +1,22 @@
+# Docker sends this whole folder to the daemon before reading the Dockerfile.
+
+# Installed for this machine's platform. The image installs its own, and a
+# stray copy here would shadow it with binaries built for the wrong system.
+node_modules
+
+# Build output. The image builds fresh; an old .next copied in would be served
+# instead of the one just built.
+.next
+out
+
+.git
+.gitignore
+
+# Secrets, and anything that would end up baked into a layer forever.
+.env
+.env.*
+!.env.example
+
+npm-debug.log*
+.DS_Store
+README.md

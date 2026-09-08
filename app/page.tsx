@@ -19,27 +19,28 @@ import { createMission, startRun } from "@/lib/api";
 
 const MAX_GOAL = 240;
 
+// Each example names its budget in the goal itself, so picking one fills the
+// goal and nothing else. The planner reads the figure out of the sentence.
 const EXAMPLES = [
-  {
-    goal: "Set up a home office under $900",
-    detail: "desk, chair, light",
-    budget: 900,
-  },
-  {
-    goal: "Camping kit for two, $600",
-    detail: "tent, bags, cooking",
-    budget: 600,
-  },
-  {
-    goal: "Restock a first apartment kitchen",
-    detail: "$450 budget",
-    budget: 450,
-  },
+  { goal: "Set up a home office under $900", detail: "desk, chair, light" },
+  { goal: "Camping kit for two, $600", detail: "tent, bags, cooking" },
+  { goal: "Restock a first apartment kitchen for $450", detail: "plates, pans, utensils" },
 ];
 
 export default function Composer() {
   const [goal, setGoal] = useState("Build a home gym under $1,200");
-  const [budget, setBudget] = useState("1200");
+
+  // Deliberately empty, even though the example goal names a figure.
+  //
+  // Pre-filling both means two places say what the budget is, and they stop
+  // agreeing the moment somebody rewrites the goal and leaves the box alone.
+  // That happened: a goal saying 2000 CAD created a mission budgeted at 1200,
+  // silently, because the backend only reads a budget out of the sentence when
+  // this field is empty.
+  //
+  // Blank keeps one source of truth - type a number and it wins, leave it and
+  // your own words are used.
+  const [budget, setBudget] = useState("");
   const [location, setLocation] = useState("");
   const [priority, setPriority] = useState<MissionPriority>("balanced");
   const [busy, setBusy] = useState(false);
@@ -112,7 +113,7 @@ export default function Composer() {
               value={budget}
               onChange={(event) => setBudget(event.target.value.replace(/[^0-9.]/g, ""))}
               inputMode="decimal"
-              placeholder="1,200"
+              placeholder="read from your goal"
               className="tnum w-full bg-transparent outline-none"
             />
           </div>
@@ -177,10 +178,7 @@ export default function Composer() {
             <button
               key={example.goal}
               type="button"
-              onClick={() => {
-                setGoal(example.goal);
-                setBudget(String(example.budget));
-              }}
+              onClick={() => setGoal(example.goal)}
               className="rounded-md border border-line bg-surface px-4 py-3 text-left hover:border-olive"
             >
               <span className="block text-[13px] font-medium">{example.goal}</span>
