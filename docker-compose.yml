@@ -1,30 +1,18 @@
-# The frontend runs as its own stack.
-#
-# It does not join the backend's compose network, and does not need to: every
-# request this app makes to the API comes from the BROWSER, not from the
-# container. The browser reaches the API on the address the backend publishes.
-#
-# That would change the day a page fetches on the server - then the container
-# would need to reach the API directly, and the two stacks would need a shared
-# network with a service-name URL for the server-side calls.
-
 services:
   web:
+    image: ${IMAGE_URL:?set IMAGE_URL to the image to run}
+
     build:
       context: .
       args:
-        # Baked into the browser bundle at build time. Change this and you must
-        # rebuild - setting it below under environment: would do nothing.
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api/v1}
 
     container_name: bentoai-web
 
     ports:
       - "3000:3000"
+    restart: ${RESTART_POLICY:-unless-stopped}
 
-    restart: unless-stopped
-
-    # node is in the image; curl and wget are not, so the check uses node.
     healthcheck:
       test:
         - CMD
