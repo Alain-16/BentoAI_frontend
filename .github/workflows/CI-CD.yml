@@ -171,7 +171,7 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
 
-          ssh -i ~/.ssh/bentoai_ci -o IdentitiesOnly=yes \
+          ssh -i ~/.ssh/bentoai-web_deploy -o IdentitiesOnly=yes \
             "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" bash -s <<REMOTE
           set -euo pipefail
           cd ~/bentoai-frontend
@@ -191,7 +191,7 @@ jobs:
 
       - name: Health check
         run: |
-          ssh -i ~/.ssh/bentoai_ci -o IdentitiesOnly=yes \
+          ssh -i ~/.ssh/bentoai-web_deploy -o IdentitiesOnly=yes \
             "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" bash -s <<'
           set -euo pipefail
           for i in $(seq 1 30); do
