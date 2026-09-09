@@ -63,7 +63,7 @@ jobs:
             echo "It is the address a BROWSER uses, e.g. http://<host>:8000/api/v1"
             exit 1
           fi
-          echo "API URL is not set"
+          echo "API URL is set"
 
       - name: Login to GHCR
         if: github.event_name == 'push' && github.ref_name == 'development'
@@ -171,12 +171,12 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
 
-          ssh -i ~/.ssh/bentoai-web_deploy -o IdentitiesOnly=yes \
+          ssh -i ~/.ssh/bentoai_ci -o IdentitiesOnly=yes \
             "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" bash -s <<REMOTE
           set -euo pipefail
           cd ~/bentoai-frontend
 
-          echo '$GHCR_TOKEN' | docker login ghcr.io -u '${{ github.actor }}
+          echo '$GHCR_TOKEN' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
 
           export IMAGE_URL='$IMAGE_URL'
           export RESTART_POLICY=always
@@ -191,11 +191,11 @@ jobs:
 
       - name: Health check
         run: |
-          ssh -i ~/.ssh/bentoai-web_deploy -o IdentitiesOnly=yes \
-            "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" bash -s <<'
+          ssh -i ~/.ssh/bentoai_ci -o IdentitiesOnly=yes \
+            "${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}" bash -s <<'REMOTE'
           set -euo pipefail
           for i in $(seq 1 30); do
-            if curl -sf --max-time 5 http://localhost:3000/ > /dev/null; th
+            if curl -sf --max-time 5 http://localhost:3000/ > /dev/null; then
               echo "serving after $((i * 2))s"
               exit 0
             fi
