@@ -78,3 +78,18 @@ body {
   outline: 2px solid var(--color-olive);
   outline-offset: 2px;
 }
+
+/* The goal box opts out.
+
+   Browsers count a click into a text field as focus-visible - typing follows a
+   click there, unlike on a button - so the ring appeared the moment anybody
+   started writing, drawn around a box that already has a border of its own.
+   The blinking caret says where you are, which is the job the ring was doing.
+
+   This belongs here rather than as a class on the textarea. The rule above is
+   unlayered CSS, and unlayered CSS beats anything inside a cascade layer no
+   matter how specific - which is where Tailwind's utilities live. So
+   focus-visible:outline-none on the element would simply lose. */
+#goal:focus-visible {
+  outline: none;
+}

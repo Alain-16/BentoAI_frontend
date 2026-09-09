@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MissionPriority } from "@/lib/api";
 import { createMission, startRun } from "@/lib/api";
 
@@ -17,8 +17,6 @@ import { createMission, startRun } from "@/lib/api";
  * is the product's promise in three lines of code.
  */
 
-const MAX_GOAL = 240;
-
 // Each example names its budget in the goal itself, so picking one fills the
 // goal and nothing else. The planner reads the figure out of the sentence.
 const EXAMPLES = [
@@ -29,6 +27,25 @@ const EXAMPLES = [
 
 export default function Composer() {
   const [goal, setGoal] = useState("Build a home gym under $1,200");
+
+  // The goal box grows to fit what has been written.
+  //
+  // A textarea is a fixed number of rows tall, so a long goal scrolls inside it
+  // and the opening words disappear while you are still typing - which is
+  // exactly when you want to reread them. Setting the height to the height of
+  // the content on every keystroke makes the box follow the text instead.
+  //
+  // The height is reset to auto first. Without that, scrollHeight is measured
+  // against the box's current height and can only ever report bigger, so the
+  // box would grow but never shrink again after a deletion.
+  const goalRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const box = goalRef.current;
+    if (!box) return;
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight}px`;
+  }, [goal]);
 
   // Deliberately empty, even though the example goal names a figure.
   //
@@ -73,8 +90,6 @@ export default function Composer() {
     }
   }
 
-  const nearLimit = goal.length > MAX_GOAL - 40;
-
   return (
     <main className="mx-auto w-full max-w-2xl px-8 py-16">
       <h1 className="font-display text-[28px] font-bold tracking-tight">
@@ -85,24 +100,19 @@ export default function Composer() {
         budget, and prepares a basket you approve.
       </p>
 
-      <div className="mt-7 rounded-lg border border-ink bg-surface p-5">
+      <div className="mt-7 rounded-lg border border-ink bg-surface px-5 py-4">
         <label htmlFor="goal" className="sr-only">
           Your goal
         </label>
         <textarea
+          ref={goalRef}
           id="goal"
           value={goal}
-          maxLength={MAX_GOAL}
           onChange={(event) => setGoal(event.target.value)}
-          rows={2}
-          className="w-full resize-none bg-transparent font-display text-[19px] font-semibold tracking-tight outline-none placeholder:text-muted/50"
+          rows={1}
+          className="block w-full resize-none overflow-hidden bg-transparent font-display text-[19px] font-semibold leading-[1.45] tracking-tight outline-none placeholder:text-muted/50"
           placeholder="Build a home gym under $1,200"
         />
-        <div
-          className={`tnum text-right font-mono text-[11px] ${nearLimit ? "text-clay" : "text-muted/70"}`}
-        >
-          {goal.length} / {MAX_GOAL}
-        </div>
       </div>
 
       <div className="mt-4 flex gap-3">
