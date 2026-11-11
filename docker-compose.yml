@@ -10,7 +10,7 @@ services:
     container_name: bentoai-web
 
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     restart: ${RESTART_POLICY:-unless-stopped}
 
     healthcheck:
